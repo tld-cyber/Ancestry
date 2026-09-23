@@ -1243,7 +1243,7 @@ function setLang(lang) {
   document.querySelectorAll('[data-i18n]').forEach(el => {
     const key = el.dataset.i18n;
     const val = t(key);
-    el.textContent = val;
+    el.innerHTML = val;
   });
   // Placeholders (search + picker)
   document.getElementById('search-box').placeholder = t('search.ph');
