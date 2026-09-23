@@ -916,11 +916,11 @@ textarea { min-height: 75px; resize: vertical; }
       <div class="form-row">
         <div class="form-group">
           <label for="f-fn" data-i18n="label.fn">Prénom</label>
-          <input type="text" id="f-fn" data-i18n-ph="ph.fn" placeholder="ex. Fatima">
+          <input type="text" id="f-fn" data-i18n-ph="ph.fn" placeholder="ex. Amina">
         </div>
         <div class="form-group">
           <label for="f-mn" data-i18n="label.mn">Prénom(s) du milieu</label>
-          <input type="text" id="f-mn" data-i18n-ph="ph.mn" placeholder="ex. Zohra (affiché dans la fiche, pas dans l'arbre)">
+          <input type="text" id="f-mn" data-i18n-ph="ph.mn" placeholder="ex. Marie (affiché dans la fiche, pas dans l'arbre)">
         </div>
       </div>
       <div class="form-row">
@@ -1133,7 +1133,7 @@ const STRINGS = {
     'toast.zoom.min':'Zoom minimum atteint',
     'import.one':'personne importée','import.many':'personnes importées',
     'import.dup.one':'doublon détecté','import.dup.many':'doublons détectés',
-    'ph.fn':'ex. Fatima','ph.mn':'ex. Zohra (affiché dans la fiche, pas dans l\'arbre)',
+    'ph.fn':'ex. Amina','ph.mn':'ex. Marie (affiché dans la fiche, pas dans l\'arbre)',
     'ph.ln':'ex. Messaoudi','ph.occ':'ex. Agriculteur, Commerçant',
     'ph.rel':'ex. Musulman','ph.nat':'ex. Algérien',
     'ph.bd':'ex. 14 mars 1834','ph.bp':'ex. Alger, Algérie',
@@ -2947,47 +2947,51 @@ function applyT() {
   if(r) r.setAttribute('transform',`translate(${tx},${ty}) scale(${sc})`);
 }
 
-// Center the view on Lakhdar Doumi ↔ Zoubida Messai at a comfortable reading zoom.
-// Falls back to fitView when neither person is found.
+// Find the root couple: two spouses among people with no parents.
+// Falls back to the first parentless person, then null.
+function findRootCouple() {
+  const roots = people.filter(p => !(p.parentIds||[]).length);
+  for (const p of roots) {
+    for (const sid of (p.spouseIds||[])) {
+      const sp = byId(sid);
+      if (sp) return [p, sp];
+    }
+  }
+  return [roots[0]||null, null];
+}
+
+// Center the view on the root couple at a comfortable reading zoom.
+// Falls back to fitView when no people are found.
 function initFocalView() {
-  // Called ONCE on first render: sets an appropriate initial sc, then pans to the focal couple.
   const pos=lastPositions;
-  const lakhdar=people.find(p=>(p.firstName||'').toLowerCase().includes('lakhdar')&&(p.lastName||'').toLowerCase().includes('doumi'));
-  const zoubida=people.find(p=>(p.firstName||'').toLowerCase().includes('zoubida')&&(p.lastName||'').toLowerCase().includes('messai'));
-  const lp=lakhdar&&pos[lakhdar.id];
-  const zp=zoubida&&pos[zoubida.id];
+  const [a,b]=findRootCouple();
+  const lp=a&&pos[a.id];
+  const zp=b&&pos[b.id];
   const svg=document.getElementById('tree-svg');
   const rect=svg.getBoundingClientRect();
   if(lp||zp){
-    const coupleW=(lp&&zp)?Math.abs(zp.x-lp.x)+NW*2+40:NW+40;
+    const coupleW=(lp&&zp)?Math.abs((zp.x||0)-(lp.x||0))+NW*2+40:NW+40;
     sc=Math.min(0.85, Math.max(0.5, rect.width*0.4/coupleW));
   } else {
     sc=0.75;
   }
-  _doRender(); // re-render with the chosen sc before panning
-  centerOnFocal(); // pan to center (sc already set)
+  _doRender();
+  centerOnFocal();
 }
 
 function centerOnFocal() {
-  // Pure pan only — sc/fonts unchanged, just shift the viewport to center the focal couple.
   const pos=lastPositions;
-  const lakhdar=people.find(p=>
-    (p.firstName||'').toLowerCase().includes('lakhdar')&&
-    (p.lastName||'').toLowerCase().includes('doumi'));
-  const zoubida=people.find(p=>
-    (p.firstName||'').toLowerCase().includes('zoubida')&&
-    (p.lastName||'').toLowerCase().includes('messai'));
-  const lp=lakhdar&&pos[lakhdar.id];
-  const zp=zoubida&&pos[zoubida.id];
+  const [a,b]=findRootCouple();
+  const lp=a&&pos[a.id];
+  const zp=b&&pos[b.id];
   if(!lp&&!zp){ fitView(); return; }
   const svg=document.getElementById('tree-svg');
   const rect=svg.getBoundingClientRect();
-  // SVG coordinates: raw pos + PAD offset
   const cx=(lp&&zp)?(lp.x+zp.x+NW)/2+PAD : (lp||zp).x+PAD+NW/2;
   const cy=(lp&&zp)?(lp.y+zp.y+NH)/2+PAD : (lp||zp).y+PAD+NH/2;
-  tx=rect.width/2-cx*sc;  // keep current sc — only translate
+  tx=rect.width/2-cx*sc;
   ty=rect.height/2-cy*sc;
-  applyT(); // no _doRender: sc unchanged, SVG content already correct
+  applyT();
 }
 
 function fitView() {
